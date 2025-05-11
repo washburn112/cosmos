@@ -1,0 +1,48 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // User profile images
+    match /users/{userId}/profile/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isOwner(userId);
+    }
+
+    // Investment documents
+    match /investments/{investmentId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && (
+        firestore.get(/databases/(default)/documents/investments/$(investmentId)).data.userId == request.auth.uid || isAdmin()
+      );
+    }
+
+    // Company documents
+    match /companies/{companyId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && (
+        firestore.get(/databases/(default)/documents/operating_companies/$(companyId)).data.investmentId == request.auth.uid || isAdmin()
+      );
+    }
+
+    // Financial reports
+    match /reports/{reportId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && (
+        firestore.get(/databases/(default)/documents/financial_data/$(reportId)).data.userId == request.auth.uid || isAdmin()
+      );
+    }
+  }
+} 
